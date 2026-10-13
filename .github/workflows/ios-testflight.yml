@@ -27,7 +27,7 @@ jobs:
       # Every upload needs a new build number; the GitHub run number always goes up.
       BUILD_NUMBER: ${{ github.run_number }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Check secrets are set
         run: |
@@ -40,7 +40,7 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -59,6 +59,7 @@ jobs:
 
       - name: Archive
         run: |
+          set -o pipefail
           xcodebuild \
             -project ios/App/App.xcodeproj \
             -scheme App \
@@ -72,7 +73,9 @@ jobs:
             DEVELOPMENT_TEAM="$TEAM_ID" \
             CODE_SIGN_STYLE=Automatic \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
-            archive
+            archive 2>&1 | tee "$RUNNER_TEMP/archive.log" || {
+              grep -E "error:|error -|Error Domain|No profiles|No Account|failed" "$RUNNER_TEMP/archive.log" | grep -v "^\s*$" | sort -u | tail -8 | while IFS= read -r l; do echo "::error::$l"; done
+              exit 1; }
 
       - name: Upload to App Store Connect
         run: |
@@ -89,6 +92,7 @@ jobs:
           </dict>
           </plist>
           EOF
+          set -o pipefail
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/Moonmoss.xcarchive" \
             -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
@@ -96,7 +100,9 @@ jobs:
             -allowProvisioningUpdates \
             -authenticationKeyPath "$KEY_PATH" \
             -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" 2>&1 | tee "$RUNNER_TEMP/export.log" || {
+              grep -E "error:|error -|Error Domain|failed|ITMS" "$RUNNER_TEMP/export.log" | sort -u | tail -8 | while IFS= read -r l; do echo "::error::$l"; done
+              exit 1; }
           echo "Uploaded Moonmoss build $BUILD_NUMBER. It appears in TestFlight after Apple finishes processing (usually 5-30 minutes)."
 
       - name: Remove key
