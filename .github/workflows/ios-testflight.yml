@@ -52,9 +52,30 @@ jobs:
           npx cap sync ios
 
       - name: Install App Store Connect API key
+        env:
+          P8: ${{ secrets.ASC_KEY_P8 }}
         run: |
           mkdir -p "$RUNNER_TEMP/keys"
-          printf '%s' "${{ secrets.ASC_KEY_P8 }}" > "$RUNNER_TEMP/keys/AuthKey.p8"
+          OUT="$RUNNER_TEMP/keys/AuthKey.p8" python3 - <<'PY'
+          # Rebuild the key in standard PEM layout, so pasting it with lost line breaks,
+          # Windows line endings, or without the BEGIN/END lines still works.
+          import base64, binascii, os, re, sys, textwrap
+          raw = os.environ.get('P8', '').replace('\r', '').strip()
+          body = re.sub(r'-----(BEGIN|END)[A-Z ]*-----', '', raw)
+          body = re.sub(r'\s+', '', body)
+          try:
+              der = base64.b64decode(body, validate=True)
+          except (binascii.Error, ValueError):
+              der = b''
+          if not (100 <= len(der) <= 200) or der[:1] != b'\x30':
+              print("::error::ASC_KEY_P8 doesn't look like an App Store Connect .p8 key "
+                    f"(decoded {len(der)} bytes, {len(body)} base64 characters). Open the AuthKey_XXXX.p8 file in Notepad, "
+                    "select everything (Ctrl+A), copy, and paste it as the secret value.")
+              sys.exit(1)
+          pem = '-----BEGIN PRIVATE KEY-----\n' + '\n'.join(textwrap.wrap(body, 64)) + '\n-----END PRIVATE KEY-----\n'
+          open(os.environ['OUT'], 'w').write(pem)
+          print('API key installed.')
+          PY
           echo "KEY_PATH=$RUNNER_TEMP/keys/AuthKey.p8" >> "$GITHUB_ENV"
 
       - name: Archive
