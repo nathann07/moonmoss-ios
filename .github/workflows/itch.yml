@@ -1,0 +1,73 @@
+name: Publish to itch.io
+
+# Builds the locked + obfuscated itch.io version from game/moonmoss.html and uploads it to
+# https://billjones.itch.io/moonmoss. Runs on every push to main that changes the game or the
+# itch build, and can be run by hand from the Actions tab ("Run workflow").
+#
+# One-time setup: add an itch.io API key as the repository secret BUTLER_API_KEY
+# (itch.io > Settings > API keys), under Settings > Secrets and variables > Actions.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'game/**'
+      - 'itch/**'
+      - '.github/workflows/itch.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: itch-publish
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+      ITCH_TARGET: billjones/moonmoss:html5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the itch.io key is set
+        run: |
+          if [ -z "$BUTLER_API_KEY" ]; then
+            echo "::error::Add an itch.io API key as the repository secret BUTLER_API_KEY (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build the itch.io file (site lock + obfuscation)
+        working-directory: itch
+        run: |
+          npm ci
+          node build.mjs
+
+      - name: Sanity-check the game
+        run: |
+          test -s itch/moonmoss.html
+          grep -q '<canvas id="game"' itch/moonmoss.html
+          grep -q 'name="mm-build" content="locked+obfuscated"' itch/moonmoss.html || { echo "::error::itch/moonmoss.html is not the locked + obfuscated build"; exit 1; }
+          node -e "const parts=require('fs').readFileSync('itch/moonmoss.html','utf8').split('<script>').slice(1).map(p=>p.split('</script>')[0]); parts.forEach(s=>new Function(s)); console.log(parts.length+' scripts parse')"
+
+      - name: Stage the game as index.html
+        run: |
+          mkdir -p dist
+          cp itch/moonmoss.html dist/index.html
+
+      - name: Install butler
+        run: |
+          for url in https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default https://broth.itch.ovh/butler/linux-amd64/LATEST/archive/default; do
+            if curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o butler.zip "$url"; then echo "got butler from $url"; break; fi
+            echo "::warning::butler download failed from $url"
+          done
+          test -s butler.zip
+          unzip -q butler.zip -d "$HOME/butler"
+          chmod +x "$HOME/butler/butler"
+          echo "$HOME/butler" >> "$GITHUB_PATH"
+          "$HOME/butler/butler" -V
+
+      - name: Push to itch.io
+        run: butler push dist "$ITCH_TARGET" --userversion "$(date -u +%Y.%m.%d)-${GITHUB_SHA::7}"
