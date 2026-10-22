@@ -6,7 +6,8 @@ This folder turns `game/moonmoss.html` (the same file you put on itch.io) into a
 
 | Path | What it is |
 | --- | --- |
-| `game/moonmoss.html` | The game. Replace this file whenever the game changes. |
+| `game/moonmoss.html` | The game, readable. Replace this file whenever the game changes. |
+| `itch/` | Builds the itch.io file: `itch/moonmoss.html` is the game with the site lock (only runs on itch.io and locally) and obfuscated code. Upload this one to itch.io, never `game/moonmoss.html`. |
 | `scripts/prepare-web.mjs` | Copies the game into `www/` for the app: bundles the fonts so it works offline, adds the phone viewport, turns off text selection. |
 | `ios/` | The Xcode project (Capacitor). Already set to: bundle ID `com.nathan.moonmoss`, iPhone only, landscape only, status bar hidden, export-compliance answered "no encryption". Icon and launch screen are in `ios/App/App/Assets.xcassets`. |
 | `.github/workflows/ios-testflight.yml` | Builds the app on a GitHub Mac and uploads it to App Store Connect / TestFlight. |
@@ -34,7 +35,7 @@ Install the **TestFlight** app from the App Store. In App Store Connect → Test
 
 ## Updating the game later
 
-1. Replace `game/moonmoss.html` with the new version (and upload it to itch.io as usual).
+1. Replace `game/moonmoss.html` with the new version. Then build the itch.io file with `cd itch && npm install && node build.mjs` and upload `itch/moonmoss.html` to itch.io (it has the site lock and obfuscation; the plain game file does not).
 2. If this is a new App Store release (not just another test build), bump `MARKETING_VERSION` in `ios/App/App.xcodeproj/project.pbxproj` (e.g. `1.0` → `1.1`; it appears twice).
 3. Commit and push. The workflow runs on its own and uploads a new build with the next build number.
 4. In App Store Connect, create the new version, pick the build, and submit for review.
