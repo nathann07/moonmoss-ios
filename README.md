@@ -6,9 +6,7 @@ This folder turns `game/moonmoss.html` (the same file you put on itch.io) into a
 
 | Path | What it is |
 | --- | --- |
-| `game/moonmoss.html` | The game, readable. Replace this file whenever the game changes. |
-| `itch/` | Builds the itch.io file: `itch/moonmoss.html` is the game with the site lock (only runs on itch.io and locally) and obfuscated code. Uploaded automatically by the itch workflow; for a manual upload use this file, never `game/moonmoss.html`. |
-| `.github/workflows/itch.yml` | Builds the locked + obfuscated game and uploads it to https://billjones.itch.io/moonmoss on every push that changes the game. |
+| `game/moonmoss.html` | The game. Replace this file whenever the game changes. |
 | `scripts/prepare-web.mjs` | Copies the game into `www/` for the app: bundles the fonts so it works offline, adds the phone viewport, turns off text selection. |
 | `ios/` | The Xcode project (Capacitor). Already set to: bundle ID `com.nathan.moonmoss`, iPhone only, landscape only, status bar hidden, export-compliance answered "no encryption". Icon and launch screen are in `ios/App/App/Assets.xcassets`. |
 | `.github/workflows/ios-testflight.yml` | Builds the app on a GitHub Mac and uploads it to App Store Connect / TestFlight. |
@@ -34,18 +32,9 @@ This folder turns `game/moonmoss.html` (the same file you put on itch.io) into a
 
 Install the **TestFlight** app from the App Store. In App Store Connect → TestFlight → Internal Testing, create a group, add yourself, and add the build. Open the invite on your phone and install Moonmoss.
 
-## Publishing to itch.io
-
-Automatic, like the iOS build. Needs one repository secret:
-- `BUTLER_API_KEY` — an itch.io API key (itch.io → Settings → API keys), added under Settings → Secrets and variables → Actions.
-
-On every push to `main` that changes the game, the workflow rebuilds the locked + obfuscated file and runs `butler push … billjones/moonmoss:html5`. To publish by hand, open the **Actions** tab, pick **Publish to itch.io**, and press **Run workflow**.
-
-One-time cleanup: butler uploads its own `index.html` entry, so after the first run, delete the old manually-uploaded `moonmoss.html` on the itch edit page and mark butler's `index.html` as played in the browser.
-
 ## Updating the game later
 
-1. Replace `game/moonmoss.html` with the new version. Commit and push — the itch workflow rebuilds and uploads it on its own (no manual upload needed once `BUTLER_API_KEY` is set).
+1. Replace `game/moonmoss.html` with the new version (and upload it to itch.io as usual).
 2. If this is a new App Store release (not just another test build), bump `MARKETING_VERSION` in `ios/App/App.xcodeproj/project.pbxproj` (e.g. `1.0` → `1.1`; it appears twice).
 3. Commit and push. The workflow runs on its own and uploads a new build with the next build number.
 4. In App Store Connect, create the new version, pick the build, and submit for review.

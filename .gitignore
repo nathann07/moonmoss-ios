@@ -2,4 +2,3 @@ node_modules/
 www/
 .DS_Store
 *.p8
-dist/
