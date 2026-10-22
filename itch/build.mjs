@@ -9,9 +9,14 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { protect } from './protect.mjs';
+import { weave } from './tripwire.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const game = readFileSync(join(here, '..', 'game', 'moonmoss.html'), 'utf8').replace(/^﻿/, '').replace(/\r\n/g, '\n');
+let game = readFileSync(join(here, '..', 'game', 'moonmoss.html'), 'utf8').replace(/^﻿/, '').replace(/\r\n/g, '\n');
+// Weave host-check tripwires into the game loop and run start, so the lock survives deletion of
+// the prelude. loop()'s own try/catch swallows errors, so the tripwire sits before it (right
+// after the opening brace); startRun() is the entry into gameplay.
+game = weave(game, ['function loop(now) {', 'function startRun() {']);
 const lock = readFileSync(join(here, 'sitelock.js'), 'utf8');
 if (!game.includes('<script>')) throw new Error('game/moonmoss.html has no <script>');
 const body = game.indexOf('<div');
